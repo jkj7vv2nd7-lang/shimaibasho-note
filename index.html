@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>しまい場所ノート ― つぶやくだけで、置いた場所を思い出せる</title>
+<meta name="description" content="しまった場所を声でつぶやいて記録し、探すときは声やキーワードで思い出せる、置き場所メモアプリ。記録はこの端末の中だけに保存されます。">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e4d43">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="しまい場所">
+<meta property="og:title" content="しまい場所ノート ― 置いた場所を、つぶやいて残す">
+<meta property="og:description" content="しまった場所を声で記録して、探すときは声やキーワードで思い出せます。記録はこの端末の中だけ。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="og.png">
+<style>
+  :root{
+    --bg:#f5f0e4; --card:#fffdf6; --ink:#22312b; --sub:#5c6a62;
+    --green:#1e4d43; --green2:#2a6a5b; --gold:#b8862f; --line:#e3dcc8;
+    --terra:#b4552f; --red:#a83c32; --chip:#eef2e9;
+    --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html{ touch-action: manipulation; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+    font-size:17px; line-height:1.65; }
+  .wrap{ max-width:560px; margin:0 auto; padding: calc(10px + var(--sat)) 16px calc(28px + var(--sab)); }
+  .view{ display:none; } .view.active{ display:block; }
+  /* header */
+  header.top{ text-align:center; padding:16px 4px 6px; }
+  header.top h1{ font-family:"Hiragino Mincho ProN","Yu Mincho",serif; font-size:30px; margin:0; letter-spacing:.04em; color:var(--green); }
+  header.top .sub{ margin:4px 0 0; color:var(--sub); font-size:15px; }
+  .savebadge{ display:inline-flex; align-items:center; gap:6px; margin-top:10px; background:var(--chip);
+    border:1px solid var(--line); border-radius:999px; padding:5px 14px; font-size:13.5px; color:var(--green); font-weight:600; }
+  .savebadge .dot{ width:9px; height:9px; border-radius:50%; background:var(--green2); }
+  /* cards */
+  .card{ background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:16px; margin:10px 0;
+    box-shadow:0 2px 10px rgba(34,49,43,.05); }
+  .card .nm{ font-size:21px; font-weight:700; line-height:1.4; }
+  .card .loc{ font-size:17.5px; color:var(--ink); margin-top:5px; display:flex; gap:7px; align-items:flex-start; }
+  .card .loc .pin{ color:var(--gold); flex:none; margin-top:2px; }
+  .card .meta{ margin-top:8px; font-size:14px; color:var(--sub); display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .cat{ background:var(--chip); color:var(--green); border-radius:999px; padding:2px 11px; font-size:13.5px; font-weight:700; }
+  .due{ background:#f8ecd4; color:#8a6414; border-radius:999px; padding:2px 11px; font-size:13.5px; font-weight:700; }
+  .sample{ background:#f3e3da; color:var(--terra); border-radius:999px; padding:2px 11px; font-size:13.5px; font-weight:700; }
+  .card img.thumb{ width:100%; max-height:190px; object-fit:cover; border-radius:12px; margin-top:10px; border:1px solid var(--line); }
+  .cardbtn{ width:100%; text-align:left; font:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer; display:block; }
+  h2.sec{ font-size:19px; margin:22px 2px 4px; color:var(--green); display:flex; align-items:center; gap:8px; }
+  /* big mic */
+  .miczone{ text-align:center; padding:20px 0 4px; }
+  .micbtn{ width:132px; height:132px; border-radius:50%; border:none; cursor:pointer; color:#fff;
+    background: radial-gradient(circle at 32% 28%, #3d8a76, var(--green) 68%);
+    box-shadow: 0 12px 28px rgba(30,77,67,.35), inset 0 0 0 6px rgba(255,255,255,.22), inset 0 0 0 12px rgba(255,255,255,.08);
+    display:inline-flex; align-items:center; justify-content:center; transition: transform .08s; }
+  .micbtn:active{ transform: scale(.96); }
+  .miclabel{ font-size:21px; font-weight:800; margin-top:12px; color:var(--green); }
+  .micsub{ font-size:14.5px; color:var(--sub); margin-top:2px; }
+  /* buttons */
+  .btn{ display:flex; align-items:center; justify-content:center; gap:9px; width:100%; min-height:58px;
+    border-radius:16px; border:none; font:inherit; font-size:18px; font-weight:700; cursor:pointer; padding:12px 16px; }
+  .btn.green{ background:var(--green); color:#fff; } .btn.green:active{ background:var(--green2); }
+  .btn.gold{ background:var(--gold); color:#fff; }
+  .btn.line{ background:var(--card); color:var(--green); border:2px solid var(--green); }
+  .btn.soft{ background:var(--chip); color:var(--green); }
+  .btn.red{ background:var(--card); color:var(--red); border:2px solid var(--red); }
+  .btn.sm{ min-height:50px; font-size:16px; }
+  .btnrow{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0 4px; }
+  .stack{ display:grid; gap:12px; margin:14px 0; }
+  .backbtn{ display:inline-flex; align-items:center; gap:6px; background:none; border:none; font:inherit; font-size:17px;
+    font-weight:700; color:var(--green); cursor:pointer; padding:10px 4px; min-height:48px; }
+  /* voice overlay */
+  #vOverlay{ position:fixed; inset:0; z-index:60; background:linear-gradient(180deg,#fdf9ee, var(--bg));
+    display:none; flex-direction:column; align-items:center; padding: calc(30px + var(--sat)) 22px calc(26px + var(--sab)); }
+  #vOverlay.active{ display:flex; }
+  .rings{ position:relative; width:190px; height:190px; margin-top:26px; flex:none; }
+  .rings .r{ position:absolute; inset:0; border-radius:50%; border:3px solid rgba(180,85,47,.4); animation:rip 1.8s ease-out infinite; }
+  .rings .r:nth-child(2){ animation-delay:.6s; } .rings .r:nth-child(3){ animation-delay:1.2s; }
+  @keyframes rip{ 0%{ transform:scale(.62); opacity:.9; } 100%{ transform:scale(1.12); opacity:0; } }
+  .rings .core{ position:absolute; inset:34px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(circle at 32% 28%, #d07a52, var(--terra) 70%); box-shadow:0 12px 28px rgba(180,85,47,.35), inset 0 0 0 6px rgba(255,255,255,.25); }
+  #vStatus{ font-size:24px; font-weight:800; margin-top:22px; color:var(--terra); }
+  #vText{ margin-top:12px; font-size:20px; line-height:1.6; text-align:center; min-height:64px; max-width:480px; }
+  #vText .interim{ color:#9a8f7a; }
+  #vHint{ color:var(--sub); font-size:15px; text-align:center; }
+  #vOverlay .spacer{ flex:1; }
+  /* forms */
+  label.fl{ display:block; font-size:15.5px; font-weight:700; color:var(--green); margin:18px 0 7px; }
+  input[type=text], textarea, select{ width:100%; font:inherit; font-size:18px; color:var(--ink);
+    background:#fff; border:2px solid var(--line); border-radius:14px; padding:13px 14px; }
+  textarea{ line-height:1.6; }
+  input:focus, textarea:focus{ outline:none; border-color:var(--green2); }
+  .chips{ display:flex; flex-wrap:wrap; gap:9px; margin-top:4px; }
+  .chipbtn{ font:inherit; font-size:16px; font-weight:600; background:var(--chip); color:var(--green);
+    border:2px solid transparent; border-radius:999px; padding:9px 15px; cursor:pointer; min-height:48px; }
+  .chipbtn.on{ background:var(--green); color:#fff; }
+  .chipbtn.place{ background:#fdf6e3; color:#7c5a10; }
+  .notice{ background:#eef4ea; border:1.5px solid #cfe0c2; color:#2f5b33; border-radius:14px; padding:13px 15px; font-size:16px; margin:12px 0; }
+  .warn{ background:#fdf1e7; border:1.5px solid #eccdb4; color:#8a4d1c; border-radius:14px; padding:13px 15px; font-size:15.5px; margin:12px 0; }
+  .priv{ font-size:14.5px; color:var(--sub); background:var(--card); border:1.5px dashed var(--line); border-radius:14px; padding:13px 15px; margin:16px 0; line-height:1.7; }
+  .answer{ background:var(--green); color:#fff; border-radius:18px; padding:18px; margin:12px 0; }
+  .answer .q{ font-size:14.5px; opacity:.85; }
+  .answer .a{ font-size:21px; font-weight:700; line-height:1.55; margin-top:4px; }
+  .photoRow{ display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  .photoRow img{ width:110px; height:82px; object-fit:cover; border-radius:10px; border:1px solid var(--line); }
+  .photobtn{ display:inline-flex; align-items:center; gap:8px; font:inherit; font-size:16px; font-weight:700;
+    background:var(--card); color:var(--green); border:2px solid var(--green); border-radius:14px; padding:11px 16px; cursor:pointer; min-height:52px; }
+  .empty{ text-align:center; color:var(--sub); padding:26px 10px; font-size:16px; }
+  .foot{ text-align:center; color:#9a927c; font-size:13px; margin-top:26px; }
+  .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== ホーム ===== -->
+  <section class="view active" id="viewHome">
+    <header class="top">
+      <h1>しまい場所ノート</h1>
+      <p class="sub">置いた場所は、つぶやくだけでいい。</p>
+      <span class="savebadge"><span class="dot"></span>記録はこの端末に保存されます</span>
+    </header>
+
+    <div id="homeNotice"></div>
+
+    <div class="miczone">
+      <button class="micbtn" id="btnMicHome" aria-label="つぶやいて記録">
+        <svg width="58" height="58" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3" fill="#fff" stroke="none"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3.2"/><path d="M8.8 21.2h6.4"/></svg>
+      </button>
+      <div class="miclabel">つぶやいて記録</div>
+      <div class="micsub">ボタンを押して、話しかけてください<br>例：「パスポート、書斎の引き出しに入れたよ」</div>
+    </div>
+
+    <div class="btnrow">
+      <button class="btn gold" id="btnGoSearch">🔍 探す</button>
+      <button class="btn line" id="btnGoManual">✏️ 文字で記録</button>
+    </div>
+
+    <h2 class="sec">🕐 最近置いたもの</h2>
+    <div id="recentList"></div>
+
+    <div id="dueZone"></div>
+
+    <div class="stack">
+      <button class="btn soft" id="btnGoList">📋 記録をすべて見る</button>
+      <button class="btn soft" id="btnGoData">💾 データの管理（書き出し・読み込み）</button>
+    </div>
+
+    <div class="priv">🔒 <b>記録はこの端末の中だけに保存されます。</b>サーバーへ送られることはありません（声の聞き取りには、お使いの端末の音声認識の仕組みを使います）。ブラウザのデータを消すと記録も消えてしまいます。大事な記録は「データの管理」から書き出して保管してください。</div>
+    <p class="foot">しまい場所ノート ― 探す時間を、少なく。</p>
+  </section>
+
+  <!-- ===== 文字で記録 ===== -->
+  <section class="view" id="viewManual">
+    <button class="backbtn" data-back>← もどる</button>
+    <h2 class="sec">✏️ 文字で記録</h2>
+    <p style="color:var(--sub);font-size:15.5px;margin:4px 2px 0">「何を・どこへ」が分かるように書いてください。あとはアプリが整理します。</p>
+    <label class="fl" for="manText">しまったもののメモ</label>
+    <textarea id="manText" rows="4" placeholder="例：予備の鍵、玄関の小さな引き出しに入れた"></textarea>
+    <div class="stack"><button class="btn green" id="btnManNext">内容を確認する →</button></div>
+  </section>
+
+  <!-- ===== 確認 ===== -->
+  <section class="view" id="viewConfirm">
+    <button class="backbtn" data-back>← もどる</button>
+    <h2 class="sec">✅ これで合っていますか？</h2>
+    <div id="cfUtter" class="priv" style="margin-top:6px"></div>
+    <label class="fl" for="cfName">ものの名前</label>
+    <input type="text" id="cfName" autocomplete="off">
+    <label class="fl" for="cfLoc">しまった場所</label>
+    <input type="text" id="cfLoc" autocomplete="off">
+    <div class="chips" id="cfPlaces"></div>
+    <label class="fl">カテゴリ</label>
+    <div class="chips" id="cfCats"></div>
+    <label class="fl">場所の写真（任意）</label>
+    <div class="photoRow">
+      <span id="cfPhotoPrev"></span>
+      <label class="photobtn">📷 写真をつける<input type="file" id="cfPhoto" accept="image/*" class="sr"></label>
+      <button class="photobtn" id="cfPhotoDel" style="display:none;color:var(--red);border-color:var(--red)">写真をはずす</button>
+    </div>
+    <div class="stack" style="margin-top:22px">
+      <button class="btn green" id="btnCfSave" style="min-height:64px;font-size:20px">これでOK、記録する</button>
+      <button class="btn soft sm" id="btnCfRedo">↩ もう一度つぶやく</button>
+    </div>
+  </section>
+
+  <!-- ===== 探す ===== -->
+  <section class="view" id="viewSearch">
+    <button class="backbtn" data-back>← もどる</button>
+    <h2 class="sec">🔍 どこにしまったっけ？</h2>
+    <p style="color:var(--sub);font-size:15.5px;margin:4px 2px 0">ものの名前でも、「旅行に使う充電するもの」のような曖昧な聞き方でも大丈夫です。</p>
+    <label class="fl" for="qText">探しもの</label>
+    <input type="text" id="qText" placeholder="例：パスポート どこ？" autocomplete="off">
+    <div class="btnrow">
+      <button class="btn green" id="btnAsk">探す</button>
+      <button class="btn gold" id="btnMicSearch">🎙 声で探す</button>
+    </div>
+    <div id="searchOut"></div>
+  </section>
+
+  <!-- ===== 一覧 ===== -->
+  <section class="view" id="viewList">
+    <button class="backbtn" data-back>← もどる</button>
+    <h2 class="sec">📋 しまい場所の記録 <span id="listCount" style="font-size:15px;color:var(--sub)"></span></h2>
+    <input type="text" id="listFilter" placeholder="名前・場所・キーワードで絞り込む" autocomplete="off">
+    <div class="chips" id="listCats" style="margin-top:10px"></div>
+    <div id="allList"></div>
+  </section>
+
+  <!-- ===== 編集 ===== -->
+  <section class="view" id="viewEdit">
+    <button class="backbtn" data-back>← もどる</button>
+    <h2 class="sec">✏️ 記録を整える</h2>
+    <label class="fl" for="edName">ものの名前</label>
+    <input type="text" id="edName" autocomplete="off">
+    <label class="fl" for="edLoc">しまった場所</label>
+    <input type="text" id="edLoc" autocomplete="off">
+    <div class="chips" id="edPlaces"></div>
+    <label class="fl">カテゴリ</label>
+    <div class="chips" id="edCats"></div>
+    <label class="fl" for="edKeys">キーワード（読点で区切る）</label>
+    <input type="text" id="edKeys" autocomplete="off">
+    <label class="fl">場所の写真（任意）</label>
+    <div class="photoRow">
+      <span id="edPhotoPrev"></span>
+      <label class="photobtn">📷 写真をつける<input type="file" id="edPhoto" accept="image/*" class="sr"></label>
+      <button class="photobtn" id="edPhotoDel" style="display:none;color:var(--red);border-color:var(--red)">写真をはずす</button>
+    </div>
+    <p class="meta" id="edMeta" style="color:var(--sub);font-size:14.5px;margin-top:16px"></p>
+    <div class="stack" style="margin-top:14px">
+      <button class="btn green" id="btnEdSave" style="min-height:64px;font-size:20px">保存する</button>
+      <button class="btn red sm" id="btnEdDelete">この記録を削除する</button>
+    </div>
+  </section>
+
+  <!-- ===== データ管理 ===== -->
+  <section class="view" id="viewData">
+    <button class="backbtn" data-back>← もどる</button>
+    <h2 class="sec">💾 データの管理</h2>
+    <div class="priv">記録はこの端末の中だけに保存されています。機種変更や、別の場所で使うときのために、書き出して保管できます。</div>
+    <h2 class="sec">書き出し</h2>
+    <div class="stack">
+      <button class="btn line" id="btnExport">📤 記録を書き出す（コピー）</button>
+    </div>
+    <textarea id="ioText" rows="6" placeholder="書き出すと、ここに記録のデータが表示されます。読み込むときは、書き出したデータをここに貼り付けてください。"></textarea>
+    <h2 class="sec">読み込み</h2>
+    <div class="stack">
+      <button class="btn line" id="btnImport">📥 上のデータを取り込む</button>
+    </div>
+    <div id="sampleZone"></div>
+    <h2 class="sec">その他</h2>
+    <div class="stack">
+      <button class="btn red sm" id="btnWipe">記録をすべて削除する</button>
+    </div>
+    <p style="color:var(--sub);font-size:14.5px">削除した記録は元に戻せません。必要な記録は先に書き出してください。</p>
+  </section>
+</div>
+
+<!-- ===== 音声オーバーレイ ===== -->
+<div id="vOverlay" role="dialog" aria-label="音声入力">
+  <div class="rings" aria-hidden="true"><span class="r"></span><span class="r"></span><span class="r"></span>
+    <span class="core"><svg width="62" height="62" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3" fill="#fff" stroke="none"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3.2"/><path d="M8.8 21.2h6.4"/></svg></span>
+  </div>
+  <div id="vStatus">聞いています…</div>
+  <div id="vText"></div>
+  <div id="vHint">そのまま話してください。言い直しても大丈夫です。</div>
+  <div class="spacer"></div>
+  <div style="width:100%;max-width:480px" class="stack">
+    <button class="btn green" id="btnVDone" style="min-height:66px;font-size:21px">終わり</button>
+    <button class="btn soft sm" id="btnVCancel">やめる</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEY = 'find-it-items-v1';
+
+/* ====== データ（元のアプリと同形式：作り直し前の記録もそのまま読める） ====== */
+const STARTERS = [
+  { id:'seed-passport', item_name:'パスポート', location:'書斎のデスク・右側の鍵付き引き出し', category:'書類', keywords:['旅行','身分証','海外'], original_utterance:'パスポートは書斎のデスク右側、鍵付きの引き出しにしまった。', created_at:'2026-10-12T09:30:00.000Z', updated_at:'2026-10-12T09:30:00.000Z', sample:true },
+  { id:'seed-camera', item_name:'カメラの予備バッテリー', location:'リビングのテレビ台・左端の布ボックス', category:'家電・ガジェット', keywords:['カメラ','充電','旅行'], original_utterance:'カメラの予備バッテリー、テレビ台の左端にある布の箱に入れたよ。', created_at:'2026-09-28T13:15:00.000Z', updated_at:'2026-09-28T13:15:00.000Z', sample:true },
+  { id:'seed-documents', item_name:'家電の保証書', location:'寝室クローゼット・上段のグレーのファイル', category:'書類', keywords:['保証','家電','取扱説明書'], original_utterance:'家電の保証書は寝室クローゼット上段、グレーのファイルにまとめた。', created_at:'2026-08-03T02:10:00.000Z', updated_at:'2026-08-03T02:10:00.000Z', sample:true },
+  { id:'seed-battery', item_name:'単三電池', location:'キッチンのパントリー・透明ケース', category:'日用品', keywords:['電池','ストック','乾電池'], original_utterance:'単三の電池はキッチンのパントリーの透明ケースに補充しておいた。', created_at:'2026-11-02T11:45:00.000Z', updated_at:'2026-11-02T11:45:00.000Z', sample:true },
+  { id:'seed-scarf', item_name:'カシミヤのマフラー', location:'玄関収納・上段の不織布ケース', category:'衣類', keywords:['冬物','衣替え','防寒'], original_utterance:'カシミヤのマフラーは玄関収納の上段、不織布ケースにしまった。', created_at:'2026-04-15T07:20:00.000Z', updated_at:'2026-04-15T07:20:00.000Z', sample:true },
+];
+let items = [];
+function loadItems(){
+  try{ const raw = localStorage.getItem(KEY);
+    if(raw === null){ items = STARTERS.slice(); persist(); return; }
+    const p = JSON.parse(raw); items = Array.isArray(p) ? p : STARTERS.slice();
+  }catch(e){ items = STARTERS.slice(); }
+}
+function persist(){
+  try{ localStorage.setItem(KEY, JSON.stringify(items)); return true; }
+  catch(e){ alert('保存できませんでした。写真が大きいか、端末の空きが足りない可能性があります。'); return false; }
+}
+
+/* ====== つぶやきの解析（元のアプリの処理を移植） ====== */
+function parseUtterance(text){
+  const cleaned = text.trim().replace(/^(あの|えっと|そうだ|メモ|記録)[、,。\s]*/u,'').replace(/[。！!]+$/u,'');
+  const action = '(?:しま|入れ|置い|保管|戻し|納め|補充|移し|まとめ|集め)';
+  const patterns = [
+    new RegExp('^(.+?)(?:は|を)[、\\s]*(.+?)(?:に|へ)' + action, 'u'),
+    new RegExp('^(.+?)[、,]\\s*(.+?)(?:に|へ)' + action, 'u'),
+  ];
+  const match = patterns.map(p => cleaned.match(p)).find(Boolean);
+  const itemName = (match && match[1].trim()) || cleaned.split(/[、,]/u)[0].split(/(?:は|を)/u)[0].trim() || cleaned;
+  const location = (match && match[2].trim())
+    || (cleaned.match(/(?:は|を)[、\s]*(.+?)(?:に|へ)(?:しま|入れ|置い|保管|戻し|納め|補充|移し|まとめ|集め)/u) || [])[1]
+    || cleaned.split(/[、,]/u).slice(1).join('、').trim()
+    || cleaned.replace(itemName,'').replace(/^[、,\sはを]+/u,'').trim();
+  const categoryRules = [
+    ['書類', ['書類','保証書','パスポート','契約書','証明書','説明書','保険証','年金']],
+    ['家電・ガジェット', ['充電','バッテリー','ケーブル','カメラ','イヤホン','ガジェット','リモコン']],
+    ['鍵・貴重品', ['鍵','かぎ','財布','通帳','印鑑','はんこ']],
+    ['薬・健康', ['薬','くすり','目薬','湿布','体温計','血圧']],
+    ['日用品', ['電池','電球','洗剤','ストック','工具','はさみ']],
+    ['衣類', ['服','マフラー','コート','靴','衣類','バッグ','帽子']],
+  ];
+  const category = (categoryRules.find(([,ws]) => ws.some(w => cleaned.includes(w))) || ['その他'])[0];
+  const keywords = Array.from(new Set([category, ...(cleaned.match(/旅行|冬物|充電|保証|ストック|衣替え|予備/gu) || [])])).slice(0,5);
+  return { item_name: itemName || cleaned, location: (location || '').trim(), category, keywords, original_utterance: text.trim() };
+}
+
+/* ====== 曖昧検索（元のアプリの処理を移植） ====== */
+function localSearch(list, query){
+  const nq = query.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+  const ranked = list.map(item => {
+    const locWords = item.location.split(/[・、\s]+|(?:の|に|で|へ|と)/u);
+    const terms = [item.item_name, item.category, ...(item.keywords || []), ...locWords]
+      .map(t => String(t).toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,'')).filter(t => t.length > 1);
+    const matches = Array.from(new Set(terms)).filter(t => nq.includes(t));
+    return { item, score: matches.reduce((a,t) => a + Math.min(t.length, 8), 0) };
+  }).filter(r => r.score > 0).sort((a,b) => b.score - a.score);
+  const best = ranked.length ? ranked[0].score : 0;
+  const scored = ranked.filter(r => r.score >= Math.max(2, best * 0.65)).slice(0,3);
+  if(!scored.length) return { answer:'記録の中から見つけられませんでした。別の言い方や、しまった場所・時期の手がかりでもう一度探してみてください。', matchedIds: [] };
+  const b = scored[0].item;
+  return { answer: '「' + b.item_name + '」なら、' + b.location + ' にしまってあります。' + (scored.length > 1 ? 'ほかにも関連しそうな記録を表示しました。' : ''), matchedIds: scored.map(r => r.item.id) };
+}
+
+/* ====== 確認リマインダー（元のアプリの目安を移植） ====== */
+const REMIND_DAYS = { '書類':180, '家電・ガジェット':90, '日用品':30, '衣類':180 };
+function reminder(it){
+  const elapsed = (Date.now() - new Date(it.updated_at).getTime()) / 86400000;
+  const interval = REMIND_DAYS[it.category] ?? 120;
+  return elapsed >= interval ? { due:true } : { due:false };
+}
+function fmtWhen(iso){
+  const d = new Date(iso); if(isNaN(d)) return '';
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const date = (d.getMonth()+1) + '月' + d.getDate() + '日';
+  if(days <= 0) return '今日（' + date + '）';
+  if(days === 1) return '昨日（' + date + '）';
+  if(days < 30) return days + '日前（' + date + '）';
+  if(days < 365) return Math.floor(days/30) + 'か月前（' + date + '）';
+  return Math.floor(days/365) + '年' + (Math.floor((days%365)/30) ? Math.floor((days%365)/30) + 'か月' : '') + '前（' + date + '）';
+}
+
+/* ====== 画面遷移 ====== */
+let curView = 'viewHome';
+function showView(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
+  curView = id; window.scrollTo(0, 0);
+  if(id === 'viewHome') renderHome();
+  if(id === 'viewList') renderList();
+  if(id === 'viewData') renderData();
+}
+document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => showView('viewHome')));
+
+/* ====== カード描画 ====== */
+const CATS = ['書類','家電・ガジェット','鍵・貴重品','薬・健康','日用品','衣類','その他'];
+function cardHTML(it){
+  const rem = reminder(it);
+  return '<button class="cardbtn" data-open="' + esc(it.id) + '"><article class="card">'
+    + '<div class="nm">' + esc(it.item_name) + '</div>'
+    + '<div class="loc"><span class="pin">📍</span><span>' + esc(it.location || '場所が未入力です') + '</span></div>'
+    + (it.photo ? '<img class="thumb" src="' + it.photo + '" alt="置いた場所の写真">' : '')
+    + '<div class="meta"><span class="cat">' + esc(it.category) + '</span>'
+    + (it.sample ? '<span class="sample">例の記録</span>' : '')
+    + (rem.due ? '<span class="due">そろそろ確認</span>' : '')
+    + '<span>' + esc(fmtWhen(it.updated_at)) + 'に記録</span></div>'
+    + '</article></button>';
+}
+function bindCards(root){
+  root.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openEdit(b.getAttribute('data-open'))));
+}
+function renderHome(){
+  const sorted = items.slice().sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+  const rec = sorted.slice(0,3);
+  $('recentList').innerHTML = rec.length ? rec.map(cardHTML).join('') : '<div class="empty">まだ記録がありません。<br>上の大きなボタンを押して、つぶやいてみてください。</div>';
+  bindCards($('recentList'));
+  const due = sorted.filter(it => reminder(it).due).slice(0,2);
+  $('dueZone').innerHTML = due.length
+    ? '<h2 class="sec">⏰ そろそろ確認</h2><p style="color:var(--sub);font-size:15px;margin:0 2px">しばらく動かしていないものです。まだそこにあるか、ときどき確認してみてください。</p>' + due.map(cardHTML).join('')
+    : '';
+  if(due.length) bindCards($('dueZone'));
+}
+function notice(msg){
+  $('homeNotice').innerHTML = '<div class="notice" role="status">' + esc(msg) + '</div>';
+  setTimeout(() => { if($('homeNotice')) $('homeNotice').innerHTML = ''; }, 6000);
+}
+
+/* ====== 場所チップ ====== */
+const PLACE_DEFAULTS = ['玄関', '机の引き出し', '冷蔵庫の上', 'テレビ台', 'クローゼットの上段', 'キッチンの引き出し', '洗面所', '車の中'];
+function placeChips(){
+  const fromItems = [];
+  items.forEach(it => { const head = String(it.location || '').split(/[・、]/)[0]; if(head && !fromItems.includes(head)) fromItems.push(head); });
+  return Array.from(new Set([...fromItems, ...PLACE_DEFAULTS])).slice(0, 10);
+}
+function paintChips(el, list, cls, onTap){
+  el.innerHTML = list.map(t => '<button type="button" class="chipbtn ' + (cls || '') + '" data-chip="' + esc(t) + '">' + esc(t) + '</button>').join('');
+  el.querySelectorAll('[data-chip]').forEach(b => b.addEventListener('click', () => onTap(b.getAttribute('data-chip'), b)));
+}
+</script>
+
+<script>
+/* ====== 音（小さな確認音：聞こえることが確かめられた音域で） ====== */
+let AC = null;
+function beep(freq, t0, dur){
+  try{
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, AC.currentTime + t0);
+    g.gain.exponentialRampToValueAtTime(0.12, AC.currentTime + t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + t0 + dur);
+    o.connect(g).connect(AC.destination); o.start(AC.currentTime + t0); o.stop(AC.currentTime + t0 + dur + 0.05);
+  }catch(e){}
+}
+const sndStart = () => beep(1318.5, 0, 0.1);
+const sndDone = () => { beep(1318.5, 0, 0.1); beep(1760, 0.12, 0.16); };
+
+/* ====== 音声入力（iPhoneの音声認識：途中経過つき／外れたら手入力へ） ====== */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+let voice = null; // { mode:'record'|'search', recog, active, finalText, restarts }
+function startVoice(mode){
+  if(!SR){
+    if(mode === 'record'){ showView('viewManual'); setTimeout(() => alert('この端末では音声入力が使えないため、文字で入力してください。'), 60); }
+    else alert('この端末では音声入力が使えません。文字で入力してください。');
+    return;
+  }
+  voice = { mode, recog: null, active: true, finalText: '', restarts: 0 };
+  $('vText').innerHTML = ''; $('vStatus').textContent = '聞いています…';
+  $('vHint').textContent = mode === 'record' ? '「何を・どこへ」が分かるように話してください。言い直しても大丈夫です。' : '探しものの名前や手がかりを話してください。';
+  $('vOverlay').classList.add('active');
+  sndStart();
+  runRecog();
+}
+function runRecog(){
+  if(!voice || !voice.active) return;
+  const r = new SR();
+  voice.recog = r;
+  r.lang = 'ja-JP'; r.interimResults = true; r.continuous = true;
+  r.onresult = ev => {
+    let interim = '';
+    for(let i = ev.resultIndex; i < ev.results.length; i++){
+      const res = ev.results[i];
+      if(res.isFinal) voice.finalText += res[0].transcript;
+      else interim += res[0].transcript;
+    }
+    $('vText').innerHTML = esc(voice.finalText) + (interim ? ' <span class="interim">' + esc(interim) + '</span>' : '');
+  };
+  r.onerror = ev => {
+    if(!voice) return;
+    if(ev.error === 'not-allowed' || ev.error === 'service-not-allowed'){ voice.active = false; closeOverlay();
+      if(voice.mode === 'record'){ showView('viewManual'); setTimeout(() => alert('マイクの使用が許可されていません。文字で入力してください。'), 60); }
+      else alert('マイクの使用が許可されていません。文字で入力してください。');
+      voice = null; return; }
+    if(ev.error === 'network'){ voice.active = false; closeOverlay(); fallbackFromVoice('音声認識に接続できませんでした。'); voice = null; return; }
+    /* no-speech / aborted は onend で再開する */
+  };
+  r.onend = () => {
+    if(voice && voice.active){
+      voice.restarts++;
+      if(voice.restarts > 8){ finishVoice(); return; }
+      try{ runRecog(); }catch(e){ finishVoice(); }
+    }
+  };
+  try{ r.start(); }catch(e){ /* 直後の再開などは無視 */ }
+}
+function closeOverlay(){ $('vOverlay').classList.remove('active'); }
+function fallbackFromVoice(msg){
+  if(!voice) return;
+  if(voice.mode === 'record'){ showView('viewManual'); if(voice.finalText.trim()) $('manText').value = voice.finalText.trim(); setTimeout(() => alert(msg + '文字で入力してください。'), 60); }
+  else alert(msg + '文字で入力してください。');
+}
+function finishVoice(){
+  if(!voice) return;
+  const v = voice; v.active = false;
+  try{ v.recog && v.recog.stop(); }catch(e){}
+  closeOverlay(); sndDone();
+  const text = v.finalText.trim();
+  voice = null;
+  if(v.mode === 'record'){
+    if(text) toConfirm(text);
+    else { showView('viewManual'); setTimeout(() => alert('音声を聞き取れませんでした。文字で入力してください。'), 60); }
+  } else {
+    showView('viewSearch');
+    if(text){ $('qText').value = text; runSearch(text); }
+  }
+}
+$('btnVDone').addEventListener('click', finishVoice);
+$('btnVCancel').addEventListener('click', () => {
+  if(!voice) return; voice.active = false;
+  try{ voice.recog && voice.recog.stop(); }catch(e){}
+  voice = null; closeOverlay();
+});
+
+/* ====== 確認画面 ====== */
+let cfPhoto = null, cfCat = 'その他', cfUtterance = '';
+function paintCatChips(el, current, set){
+  el.innerHTML = CATS.map(c => '<button type="button" class="chipbtn' + (c === current ? ' on' : '') + '" data-cat="' + esc(c) + '">' + esc(c) + '</button>').join('');
+  el.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => set(b.getAttribute('data-cat'))));
+}
+function placeTap(input){ return (t) => { input.value = input.value ? input.value.replace(/・?$/, '・') + t : t; input.focus(); }; }
+function setPhotoPrev(span, delBtn, data){
+  span.innerHTML = data ? '<img src="' + data + '" alt="場所の写真">' : '';
+  delBtn.style.display = data ? '' : 'none';
+}
+function readPhoto(input, done){
+  const f = input.files && input.files[0]; if(!f){ done(null); return; }
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 800 / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    URL.revokeObjectURL(img.src);
+    done(cv.toDataURL('image/jpeg', 0.72));
+  };
+  img.onerror = () => done(null);
+  img.src = URL.createObjectURL(f);
+}
+function toConfirm(text){
+  const p = parseUtterance(text);
+  cfUtterance = text; cfPhoto = null; cfCat = p.category;
+  $('cfUtter').innerHTML = '🗣 つぶやき：<br>' + esc(text);
+  $('cfName').value = p.item_name; $('cfLoc').value = p.location;
+  setPhotoPrev($('cfPhotoPrev'), $('cfPhotoDel'), null);
+  paintCatChips($('cfCats'), cfCat, c => { cfCat = c; toConfirmRefreshCats(); });
+  paintChips($('cfPlaces'), placeChips(), 'place', placeTap($('cfLoc')));
+  showView('viewConfirm');
+}
+function toConfirmRefreshCats(){ paintCatChips($('cfCats'), cfCat, c => { cfCat = c; toConfirmRefreshCats(); }); }
+$('cfPhoto').addEventListener('change', () => readPhoto($('cfPhoto'), d => { if(d){ cfPhoto = d; setPhotoPrev($('cfPhotoPrev'), $('cfPhotoDel'), d); } }));
+$('cfPhotoDel').addEventListener('click', () => { cfPhoto = null; $('cfPhoto').value = ''; setPhotoPrev($('cfPhotoPrev'), $('cfPhotoDel'), null); });
+$('btnCfSave').addEventListener('click', () => {
+  const name = $('cfName').value.trim(), loc = $('cfLoc').value.trim();
+  if(!name){ alert('ものの名前を入力してください。'); $('cfName').focus(); return; }
+  if(!loc){ alert('しまった場所を入力してください。'); $('cfLoc').focus(); return; }
+  const now = new Date().toISOString();
+  const parsed = parseUtterance(cfUtterance || name);
+  const it = { id: (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now()), item_name: name, location: loc,
+    category: cfCat, keywords: parsed.keywords, original_utterance: cfUtterance || name, created_at: now, updated_at: now };
+  if(cfPhoto) it.photo = cfPhoto;
+  items.unshift(it);
+  if(!persist()){ delete it.photo; persist(); }
+  showView('viewHome');
+  notice('記録しました：「' + name + '」→ ' + loc);
+});
+$('btnCfRedo').addEventListener('click', () => startVoice('record'));
+
+/* ====== ホームのボタン ====== */
+$('btnMicHome').addEventListener('click', () => startVoice('record'));
+$('btnGoManual').addEventListener('click', () => showView('viewManual'));
+$('btnManNext').addEventListener('click', () => {
+  const t = $('manText').value.trim();
+  if(!t){ alert('メモを入力してください。'); return; }
+  $('manText').value = ''; toConfirm(t);
+});
+$('btnGoSearch').addEventListener('click', () => showView('viewSearch'));
+$('btnGoList').addEventListener('click', () => showView('viewList'));
+$('btnGoData').addEventListener('click', () => showView('viewData'));
+
+/* ====== 探す ====== */
+function runSearch(q){
+  const r = localSearch(items, q);
+  const matched = r.matchedIds.map(id => items.find(it => it.id === id)).filter(Boolean);
+  $('searchOut').innerHTML = '<div class="answer"><div class="q">🔍 「' + esc(q) + '」</div><div class="a">' + esc(r.answer) + '</div></div>'
+    + matched.map(cardHTML).join('');
+  bindCards($('searchOut'));
+}
+$('btnAsk').addEventListener('click', () => { const q = $('qText').value.trim(); if(q) runSearch(q); });
+$('qText').addEventListener('keydown', e => { if(e.key === 'Enter'){ const q = $('qText').value.trim(); if(q) runSearch(q); } });
+$('btnMicSearch').addEventListener('click', () => startVoice('search'));
+
+/* ====== 一覧 ====== */
+let listCat = '';
+function renderList(){
+  const cats = Array.from(new Set(items.map(it => it.category)));
+  $('listCats').innerHTML = [''].concat(cats).map(c => '<button type="button" class="chipbtn' + (listCat === c ? ' on' : '') + '" data-lc="' + esc(c) + '">' + (c === '' ? 'すべて' : esc(c)) + '</button>').join('');
+  $('listCats').querySelectorAll('[data-lc]').forEach(b => b.addEventListener('click', () => { listCat = b.getAttribute('data-lc'); renderList(); }));
+  const q = $('listFilter').value.trim().toLocaleLowerCase();
+  const sorted = items.slice().sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+  const fil = sorted.filter(it => (!listCat || it.category === listCat) &&
+    (!q || (it.item_name + ' ' + it.location + ' ' + (it.keywords || []).join(' ')).toLocaleLowerCase().includes(q)));
+  $('listCount').textContent = '（' + fil.length + '件）';
+  $('allList').innerHTML = fil.length ? fil.map(cardHTML).join('') : '<div class="empty">この条件の記録はありません。</div>';
+  bindCards($('allList'));
+}
+$('listFilter').addEventListener('input', renderList);
+
+/* ====== 編集 ====== */
+let edId = null, edPhoto = undefined, edCat = 'その他';
+function openEdit(id){
+  const it = items.find(x => x.id === id); if(!it) return;
+  edId = id; edPhoto = it.photo; edCat = it.category;
+  $('edName').value = it.item_name; $('edLoc').value = it.location;
+  $('edKeys').value = (it.keywords || []).join('、');
+  setPhotoPrev($('edPhotoPrev'), $('edPhotoDel'), it.photo || null);
+  paintCatChips($('edCats'), edCat, c => { edCat = c; openEditRefreshCats(); });
+  paintChips($('edPlaces'), placeChips(), 'place', placeTap($('edLoc')));
+  $('edMeta').textContent = '記録した日：' + fmtWhen(it.created_at) + (it.original_utterance ? '　／　つぶやき：「' + it.original_utterance + '」' : '');
+  showView('viewEdit');
+}
+function openEditRefreshCats(){ paintCatChips($('edCats'), edCat, c => { edCat = c; openEditRefreshCats(); }); }
+$('edPhoto').addEventListener('change', () => readPhoto($('edPhoto'), d => { if(d){ edPhoto = d; setPhotoPrev($('edPhotoPrev'), $('edPhotoDel'), d); } }));
+$('edPhotoDel').addEventListener('click', () => { edPhoto = null; $('edPhoto').value = ''; setPhotoPrev($('edPhotoPrev'), $('edPhotoDel'), null); });
+$('btnEdSave').addEventListener('click', () => {
+  const it = items.find(x => x.id === edId); if(!it) return;
+  const name = $('edName').value.trim(), loc = $('edLoc').value.trim();
+  if(!name || !loc){ alert('名前と場所は空にできません。'); return; }
+  it.item_name = name; it.location = loc; it.category = edCat;
+  it.keywords = $('edKeys').value.split(/[、,，]/u).map(w => w.trim()).filter(Boolean);
+  if(edPhoto) it.photo = edPhoto; else delete it.photo;
+  it.updated_at = new Date().toISOString();
+  if(it.sample) delete it.sample;
+  persist(); showView('viewHome'); notice('記録を更新しました：「' + name + '」');
+});
+$('btnEdDelete').addEventListener('click', () => {
+  const it = items.find(x => x.id === edId); if(!it) return;
+  if(!confirm('「' + it.item_name + '」の記録を削除しますか？')) return;
+  items = items.filter(x => x.id !== edId); persist();
+  showView('viewHome'); notice('削除しました。');
+});
+
+/* ====== データ管理 ====== */
+function renderData(){
+  const n = items.filter(it => it.sample).length;
+  $('sampleZone').innerHTML = n ? '<h2 class="sec">例の記録</h2><div class="stack"><button class="btn soft sm" id="btnDelSamples">例の記録をすべて消す（' + n + '件）</button></div>' : '';
+  const b = $('btnDelSamples');
+  if(b) b.addEventListener('click', () => { if(confirm('例の記録をすべて消しますか？')){ items = items.filter(it => !it.sample); persist(); renderData(); renderHome(); } });
+}
+$('btnExport').addEventListener('click', async () => {
+  const text = JSON.stringify(items, null, 1);
+  $('ioText').value = text;
+  try{ await navigator.clipboard.writeText(text); notice('書き出して、コピーしました。メモなどに貼って保管してください。'); showView('viewData'); }
+  catch(e){ $('ioText').select(); }
+  showView('viewData');
+});
+$('btnImport').addEventListener('click', () => {
+  let parsed;
+  try{ parsed = JSON.parse($('ioText').value); }catch(e){ alert('データの形が正しくありません。書き出したデータをそのまま貼ってください。'); return; }
+  if(!Array.isArray(parsed) || !parsed.every(x => x && x.item_name && x.location)){ alert('記録データではないようです。'); return; }
+  if(!confirm('今の記録（' + items.length + '件）を、取り込むデータ（' + parsed.length + '件）で置き換えますか？')) return;
+  items = parsed; persist(); $('ioText').value = '';
+  showView('viewHome'); notice('記録を取り込みました（' + parsed.length + '件）。');
+});
+$('btnWipe').addEventListener('click', () => {
+  if(!confirm('記録をすべて削除しますか？')) return;
+  if(!confirm('本当にすべて削除します。元に戻せません。よろしいですか？')) return;
+  items = []; persist(); showView('viewHome'); notice('記録をすべて削除しました。');
+});
+
+/* ====== 初期化 ====== */
+loadItems();
+renderHome();
+</script>
+</body>
+</html>
